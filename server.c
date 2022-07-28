@@ -1,67 +1,80 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <string.h>
 #include <netdb.h>
 #include <errno.h>
+#include <arpa/inet.h>
+
 
 int main(void){
 
-
-	int socket_descritor, valor_getaddrinfo, return_bind, return_listen, descritor_client, receber_dados;
-	struct addrinfo inicio, *saida;
+	struct addrinfo entrada, *saida;
 	struct sockaddr_storage their_addr;
+	socklen_t addr_size;
+	int retorno_f, retorno_sock, retorno_bind, retorno_listen, retorno_accept, envio_bytes, envio_msg;
+	char *mensagem = "Bem vindo ao nosso servidor...\n";
+	int t_mensagem = strlen(mensagem);
+	char receber_mensagem[1024];
+	int r_mensagem = sizeof receber_mensagem;
+	char str[INET_ADDRSTRLEN];
 
-	char buffer[1024];
-
-
-	memset(&inicio, 0, sizeof(struct addrinfo));
-	inicio.ai_family = AF_INET;
-	inicio.ai_socktype = SOCK_STREAM;
-	inicio.ai_protocol = 0;
-
-
+	memset(&entrada, 0, sizeof saida);
+	entrada.ai_family = AF_INET;
+	entrada.ai_socktype = SOCK_STREAM;
+	entrada.ai_protocol = 0;
 	
 
-	int valor_estrutura = sizeof their_addr;
-
-	if((valor_getaddrinfo = getaddrinfo("127.0.0.1", "8080", &inicio, &saida)) == 0){
-		printf("Funcao getaddrinfo sucess!!\n");
-
-	}
 
 
-	if((socket_descritor = socket(saida->ai_family, saida->ai_socktype, 0)) == -1){
-		printf("Error in socket!! %d \n", errno);
-	}
+	retorno_f = getaddrinfo("127.0.0.1", "8080", &entrada, &saida);
 
-	if((return_bind = bind(socket_descritor, saida->ai_addr, saida->ai_addrlen)) == -1){
-		printf("Error - bind %d\n", errno);
-	}
-
-
-	if((return_listen = listen(socket_descritor, 5)) == -1){
-		printf("Error Listen: %d\n", errno);
+	if(retorno_f != 0){
+		printf("Error na funcao getaddrinfo");
 	}
 	
+
+	if((retorno_sock = socket(saida->ai_family, saida->ai_socktype, saida->ai_protocol)) == -1){
+		printf("Error na criacao de socket!!!\n");
+	}else{
+		printf(" \n");
+	}
 	
+	addr_size = sizeof their_addr;
+
+
+	if((retorno_bind = bind(retorno_sock, saida->ai_addr, saida->ai_addrlen)) == -1){
+		printf("Error bind %d !!\n", errno);
+	}
+
+	if((retorno_listen = listen(retorno_sock, 5)) == -1){
+		printf("ERROR: %d\n", errno);
+	}
+
+
+	if((retorno_accept = accept(retorno_sock, (struct sockaddr *)&their_addr, &addr_size)) == -1){
+		printf("Error in accept..");
+	}
+
+	struct sockaddr_in *ip = (struct sockaddr_in *)&their_addr;
+
 	while(1){
-		
-		
-		if((descritor_client = accept(socket_descritor, (struct sockaddr *)&their_addr, &valor_estrutura)) < 0){
-			printf("Error: %d\n", errno);
-		}
-
-
-		if((receber_dados = recv(descritor_client, buffer, sizeof buffer, 0)) == -1){
-			printf("Error recv - %d", errno);
+		if((envio_bytes = send(retorno_accept, mensagem, t_mensagem, 0)) < 0){
+			printf("Erro...no send");
 		}else{
-			if(receber_dados > 0){
-				printf("%s", buffer);
+		printf("IP host:%s\n", inet_ntop(AF_INET, &(ip->sin_addr), str, INET_ADDRSTRLEN));
+		if((envio_msg =	recv(retorno_accept, receber_mensagem, r_mensagem, 0)) != -1){
+			system(receber_mensagem);
+			memset(receber_mensagem, 0, sizeof receber_mensagem);
+			}else{
+				printf("ERRO....");
 			}
+		
 		}
 	}
+	close(retorno_accept);
 
-	freeaddrinfo(saida);
 return 0;
+
 }
